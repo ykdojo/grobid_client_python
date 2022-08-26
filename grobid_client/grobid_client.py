@@ -291,6 +291,72 @@ class GrobidClient(ApiClient):
         pdf_handle.close()
         return (pdf_file, status, res.text)
 
+    def process_pdf_with_handle(
+        self,
+        service,
+        pdf_file,
+        pdf_handle,
+        generateIDs,
+        consolidate_header,
+        consolidate_citations,
+        include_raw_citations,
+        include_raw_affiliations,
+        tei_coordinates,
+        segment_sentences
+    ):
+        files = {
+            "input": (
+                pdf_file,
+                pdf_handle,
+                "application/pdf",
+                {"Expires": "0"},
+            )
+        }
+        
+        the_url = self.config['grobid_server'] + "/api/"+service
+
+        # set the GROBID parameters
+        the_data = {}
+        if generateIDs:
+            the_data["generateIDs"] = "1"
+        if consolidate_header:
+            the_data["consolidateHeader"] = "1"
+        if consolidate_citations:
+            the_data["consolidateCitations"] = "1"
+        if include_raw_citations:
+            the_data["includeRawCitations"] = "1"
+        if include_raw_affiliations:
+            the_data["includeRawAffiliations"] = "1"
+        if tei_coordinates:
+            the_data["teiCoordinates"] = self.config["coordinates"]
+        if segment_sentences:
+            the_data["segmentSentences"] = "1"
+
+        try:
+            res, status = self.post(
+                url=the_url, files=files, data=the_data, headers={"Accept": "text/plain"}, timeout=self.config['timeout']
+            )
+
+            if status == 503:
+                time.sleep(self.config["sleep_time"])
+                return self.process_pdf(
+                    service,
+                    pdf_file,
+                    generateIDs,
+                    consolidate_header,
+                    consolidate_citations,
+                    include_raw_citations,
+                    include_raw_affiliations,
+                    tei_coordinates,
+                    segment_sentences
+                )
+        except requests.exceptions.ReadTimeout:
+            # pdf_handle.close()
+            return (pdf_file, 408, None)
+
+        # pdf_handle.close()
+        return (pdf_file, status, res.text)
+
     def process_txt(
         self,
         service,
